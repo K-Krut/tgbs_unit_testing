@@ -23,6 +23,7 @@ class DateParser:
         self.__leagues = self.add_emoji(self.get_leagues())
         self.__messages = self.get_messages(self.__matches, self.__leagues)
 
+
     @property
     def soup(self):
         return self.__soup
@@ -175,3 +176,11 @@ def check_date(message):
     if int(date[:2]) > MAX_DAY_IN_MONTH or int(date[2:4]) > MONTH_IN_YEAR:
         return False
     return True
+
+
+
+d = DateParser('2022-11-11')
+print(d)
+print(d.get_leagues())
+print(d.leagues)
+print(''.join([str(i) for i in d.get_matches()]))

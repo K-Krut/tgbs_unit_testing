@@ -18,7 +18,6 @@ def start(message):
     search_by_team_button = types.KeyboardButton("Поиск по команде")
     help = types.KeyboardButton("Помощь")
     markup_start_choice.add(search_by_date_button, search_by_team_button, help)  # добавили кнопки
-
     bot.send_message(
         message.chat.id,
         "Привет! \nЭто бот для поиска футбольных матчей. \nНажми кнопку чтобы начать...",
@@ -59,6 +58,7 @@ def search_by_date_com(message):
 def send_matches_by_date(message):
     msg = message.text
     msg = msg.split('.')
+    print(msg, check_date(msg))
     if not check_date(msg):
         bot.send_message(
             message.chat.id,
@@ -119,6 +119,7 @@ def search_by_team(message):
 
 @bot.message_handler(content_types=['text'])
 def get_text(message):
+    print(message)
     if message.text == "Поиск по дате":
         search_by_date_com(message)
     elif message.text == "Поиск по команде":
@@ -128,3 +129,4 @@ def get_text(message):
 
 
 bot.polling(none_stop=True)
+

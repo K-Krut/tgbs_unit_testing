@@ -152,11 +152,6 @@ def check_team(team):
 
 
 
-#
-# p = TeamParser("Реал Мадрид")
-#
-#
-# print(p.get_info())
 
 
 

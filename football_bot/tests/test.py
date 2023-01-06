@@ -14,12 +14,6 @@ from ptbtest import ChatGenerator
 from ptbtest import MessageGenerator
 from ptbtest import Mockbot
 
-"""
-This is an example to show how the ptbtest suite can be used.
-This example follows the conversationbot2 example at:
-https://github.com/python-telegram-bot/python-telegram-bot/blob/master/examples/conversationbot2.py
-
-"""
 
 
 class TestConversationbot2(unittest.TestCase):
@@ -29,141 +23,140 @@ class TestConversationbot2(unittest.TestCase):
         self.ug = UserGenerator()
         self.mg = MessageGenerator(self.bot)
         self.updater = Updater(bot=self.bot)
-        print(self.bot)
 
     def test_conversation(self):
         CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
-        reply_keyboard = [['Age', 'Favourite colour'], ['Number of siblings', 'Something else...'], ['Done']]
-        markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-
-        def facts_to_str(user_data):
-            facts = list()
-            for key, value in user_data.items():
-                facts.append('%s - %s' % (key, value))
-
-            return "\n".join(facts).join(['\n', '\n'])
+        reply_keyboard = [['Поиск по дате', 'Поиск по команде', 'Помощь']]
+        markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, row_width=3)
 
         def start(bot, update):
             update.message.reply_text(
-                "Hi! My name is Doctor Botter. I will hold a more complex conversation with you. "
-                "Why don't you tell me something about yourself?", reply_markup=markup)
-
+                "Привет! \nЭто бот для поиска футбольных матчей. \nНажми кнопку чтобы начать...",
+                reply_markup=markup
+            )
             return CHOOSING
 
-        def regular_choice(bot, update, user_data):
+        def regular_choice(update, user_data):
             text = update.message.text
             user_data['choice'] = text
-            update.message.reply_text('Your %s? Yes, I would love to hear about that!' % text.lower())
 
             return TYPING_REPLY
 
-        def custom_choice(bot, update):
-            update.message.reply_text('Alright, please send me the category first, '
-                                      'for example "Most impressive skill"')
-
-            return TYPING_CHOICE
-
-        def received_information(bot, update, user_data):
-            text = update.message.text
-            category = user_data['choice']
-            user_data[category] = text
-            del user_data['choice']
-
-            update.message.reply_text("Neat! Just so you know, this is what you already told me:"
-                                      "%s"
-                                      "You can tell me more, or change your opinion on something."
-                                      % facts_to_str(user_data), reply_markup=markup)
+        def help_(bot, update):
+            update.message.reply_text(
+                "Чтобы начать использование бота введите команду '/start';"
+                "\nЕсли возникли проблемы — перезапустите бота и нажмите '/start';"
+                "\nЧтобы посмотреть все возможности бота введите '/all_commands'.",
+            )
 
             return CHOOSING
 
-        def done(bot, update, user_data):
+        def all_commands(bot, update):
+            update.message.reply_text(
+                "Перечень всех команд: "
+                "\n/start — перезапуск бота; "
+                "\n/help — инструкция использования; "
+                "\n/all_commands — перечень возможных команд; "
+                "\n/search_by_date — поиск матчей по дате;"
+                "\n/search_by_team — поиск информации по команде;"
+            )
+            return CHOOSING
+
+        def search_by_date_com(bot, update):
+            update.message.reply_text("Введите дату в формате: дд.мм.гггг")
+
+        def done(user_data):
             if 'choice' in user_data:
                 del user_data['choice']
-
-            update.message.reply_text("I learned these facts about you:"
-                                      "%s"
-                                      "Until next time!" % facts_to_str(user_data))
 
             user_data.clear()
             return ConversationHandler.END
 
+
+
         conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', start)],
+            entry_points=[CommandHandler('start', start),
+                          CommandHandler('help', help_),
+                          CommandHandler('all_commands', all_commands),
+                          CommandHandler('search_by_date', search_by_date_com),
+                          ],
             states={
-                CHOOSING: [RegexHandler('^(Age|Favourite colour|Number of siblings)$',
+                CHOOSING: [RegexHandler('^(Поиск по дате|Поиск по команде|Помощь)$',
                                         regular_choice,
                                         pass_user_data=True),
-                           RegexHandler('^Something else...$',
-                                        custom_choice),
                            ],
                 TYPING_CHOICE: [MessageHandler(Filters.text,
                                                regular_choice,
                                                pass_user_data=True),
                                 ],
-                TYPING_REPLY: [MessageHandler(Filters.text,
-                                              received_information,
-                                              pass_user_data=True),
-                               ],
             },
             fallbacks=[RegexHandler('^Done$', done, pass_user_data=True)]
         )
+
+
+
         dp = self.updater.dispatcher
         dp.add_handler(conv_handler)
         self.updater.start_polling()
 
-        # We are going to test a conversationhandler. Since this is tied in with user and chat we need to
-        # create both for consistancy
         user = self.ug.get_user()
-        chat = self.cg.get_chat(type="group")
-        user2 = self.ug.get_user()
-        chat2 = self.cg.get_chat(user=user)
+        chat = self.cg.get_chat(user=user)
 
-        # let's start the conversation
-        u = self.mg.get_message(user=user, chat=chat, text="/start")
-        self.bot.insertUpdate(u)
-        data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"Doctor Botter\. I will")
-        u = self.mg.get_message(user=user, chat=chat, text="Age")
-        self.bot.insertUpdate(u)
-        data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"Your age\? Yes")
 
-        # now let's see what happens when another user in another chat starts conversating with the bot
-        u = self.mg.get_message(user=user2, chat=chat2, text="/start")
-        self.bot.insertUpdate(u)
-        data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"Doctor Botter\. I will")
-        self.assertEqual(data['chat_id'], chat2.id)
-        self.assertNotEqual(data['chat_id'], chat.id)
-        # and cancels his conv.
-        u = self.mg.get_message(user=user2, chat=chat2, text="Done")
-        self.bot.insertUpdate(u)
-        data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"Until next time!")
 
-        # cary on with first user
-        u = self.mg.get_message(user=user, chat=chat, text="23")
-        self.bot.insertUpdate(u)
+
+        # Тестування команди /start
+        update = self.mg.get_message(user=user, chat=chat, text="/start")
+        self.bot.insertUpdate(update)
         data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"Age - 23")
-        u = self.mg.get_message(user=user, chat=chat, text="Something else...")
-        self.bot.insertUpdate(u)
+        self.assertRegex(data['text'],
+                         r"Привет! \nЭто бот для поиска футбольных матчей. \nНажми кнопку чтобы начать...")
+
+
+
+        # Тестування опції вибору
+        update = self.mg.get_message(user=user, chat=chat, text="Поиск по дате")
+        self.bot.insertUpdate(update)
+        self.assertRegex(update['message']['text'], r"^(Поиск по дате|Поиск по команде|Помощь)$")
+
+
+
+        # Тестування команди /search_by_date
+        update = self.mg.get_message(user=user, chat=chat, text="/search_by_date")
+        self.bot.insertUpdate(update)
         data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"Most impressive skill")
-        u = self.mg.get_message(user=user, chat=chat, text="programming skill")
-        self.bot.insertUpdate(u)
+        self.assertRegex(data['text'], r"Введите дату в формате: дд.мм.гггг")
+
+
+
+        # Тестування команди /help
+        update = self.mg.get_message(user=user, chat=chat, text="/help")
+        self.bot.insertUpdate(update)
         data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"Your programming skill\? Yes")
-        u = self.mg.get_message(user=user, chat=chat, text="High")
-        self.bot.insertUpdate(u)
+        self.assertRegex(data['text'],
+                         "Чтобы начать использование бота введите команду '/start';"
+                         "\nЕсли возникли проблемы — перезапустите бота и нажмите '/start';"
+                         "\nЧтобы посмотреть все возможности бота введите '/all_commands'.",
+                         )
+
+
+        # Тестування команди /all_commands
+        update = self.mg.get_message(user=user, chat=chat, text="/all_commands")
+        self.bot.insertUpdate(update)
         data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"programming skill - High")
-        u = self.mg.get_message(user=user, chat=chat, text="Done")
-        self.bot.insertUpdate(u)
-        data = self.bot.sent_messages[-1]
-        self.assertRegex(data['text'], r"programming skill - High")
-        self.assertRegex(data['text'], r"Age - 23")
+        self.assertRegex(data['text'],
+                         "Перечень всех команд: "
+                         "\n/start — перезапуск бота; "
+                         "\n/help — инструкция использования; "
+                         "\n/all_commands — перечень возможных команд; "
+                         "\n/search_by_date — поиск матчей по дате;"
+                         "\n/search_by_team — поиск информации по команде;",
+                         )
+
+
+        # Тестування правильності чату
+        self.assertEqual(data['chat_id'], chat.id)
 
         self.updater.stop()
 
